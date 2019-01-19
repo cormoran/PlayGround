@@ -1,0 +1,115 @@
+<!--
+This html uses https://github.com/cognitom/paper-css and based on it's example https://github.com/cognitom/paper-css/blob/master/examples/a4.html.
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>A4</title>
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css"
+    />
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/paper-css/0.4.1/paper.css"
+    />
+
+    <style>
+      @page {
+        size: A4;
+      }
+      @media print {
+        .no-print {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+
+  <body class="A4">
+    <div id="app">
+      <div class="no-print">
+        <div>message <textarea v-model="message"></textarea></div>
+        <div>line height <input v-model.number="lineHeight" /></div>
+      </div>
+      <section class="sheet padding-10mm">
+        <!-- background image -->
+        <img
+          src="output_page1.svg"
+          style="width: calc(100% + 20mm); height: calc(100% + 20mm); margin: -10mm; pointer-events: none;"
+        />
+        <draggable-item
+          :text="message"
+          :line-height="lineHeight"
+        ></draggable-item>
+      </section>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script>
+      function clip(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      // drag-movable text
+      Vue.component("draggable-item", {
+        template: `
+        <div draggable="true" @dragstart="onDragStart" @dragend="onDragEnd" :style="{ left: x + 'px', top: y + 'px', 'line-height': lineHeight, }" style="position: absolute;">
+          <div v-for="line in text.split('\\n')">
+            {{ line }}
+          </div>
+        </div>`,
+        props: {
+          text: {
+            type: String,
+            default: ""
+          },
+          lineHeight: {
+            type: Number,
+            default: 1
+          }
+        },
+        data() {
+          return {
+            x: 10,
+            y: 10,
+            posMemory: null
+          };
+        },
+        methods: {
+          onDragStart(e) {
+            // e: DragEvent, see https://developer.mozilla.org/ja/docs/Web/Events/dragstart
+            this.posMemory = { x: e.clientX, y: e.clientY };
+          },
+          onDragEnd(e) {
+            // e: DragEvent, see https://developer.mozilla.org/en-US/docs/Web/Events/dragend
+            const offsetX = e.clientX - this.posMemory.x;
+            const offsetY = e.clientY - this.posMemory.y;
+            const margin = 10;
+            this.x = clip(
+              this.x + offsetX,
+              margin,
+              e.target.parentNode.clientWidth - margin
+            );
+            this.y = clip(
+              this.y + offsetY,
+              margin,
+              e.target.parentNode.clientHeight - margin
+            );
+          }
+        }
+      });
+
+      // vue
+      new Vue({
+        el: "#app",
+        data: {
+          message: "test",
+          lineHeight: 1
+        }
+      });
+    </script>
+  </body>
+</html>

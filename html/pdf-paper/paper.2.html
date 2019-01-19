@@ -1,0 +1,189 @@
+<!--
+This html uses https://github.com/cognitom/paper-css and based on it's example https://github.com/cognitom/paper-css/blob/master/examples/a4.html.
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>A4</title>
+
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
+    />
+
+    <style>
+      @media print {
+        body {
+          min-width: unset !important;
+        }
+      }
+    </style>
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/paper-css/0.4.1/paper.css"
+    />
+
+    <style>
+      @page {
+        size: A4;
+      }
+    </style>
+  </head>
+
+  <body class="A4">
+    <div id="app">
+      <div class="d-flex flex-row d-print-block">
+        <div class="flex-grow-1">
+          <section class="sheet padding-10mm" v-for="i in 100">
+            <!-- background image -->
+            <img
+              src="output_page1.svg"
+              style="width: calc(100% + 20mm); height: calc(100% + 20mm); margin: -10mm; pointer-events: none;"
+            />
+            <draggable-item
+              v-for="item, key in SampleStruct"
+              v-if="item.show"
+              :item="item"
+              @select="selectingItem = item"
+              @input="item.style = Object.assign(item.style, $event)"
+            ></draggable-item>
+          </section>
+        </div>
+        <div class="d-print-none bg-white p-4" style="min-width: 300px;">
+          <form>
+            <div
+              class="form-group form-check"
+              v-for="item, key in SampleStruct"
+            >
+              <input
+                type="checkbox"
+                class="form-check-input"
+                v-model="item.show"
+              />
+              <label class="form-check-label"> {{ item.name }} </label>
+            </div>
+          </form>
+          <form v-if="selectingItem">
+            <div class="form-group">
+              <label>{{ selectingItem.name }}を選択中</label>
+            </div>
+            <div class="form-group">
+              <label>内容</label>
+              <textarea
+                class="form-control"
+                :value="selectingItem.text"
+                @input="selectingItem.text = $event.target.value"
+              ></textarea>
+            </div>
+            <div class="form-group" v-for="style in styles">
+              <label>{{ style }}</label>
+              <input
+                type="text"
+                class="form-control"
+                :value="selectingItem.style[style] || ''"
+                @input="$set(selectingItem.style, style, $event.target.value)"
+              />
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script>
+      function newTextItem(name) {
+        return {
+          name: name,
+          text: name + "text",
+          style: {
+            top: "10px",
+            left: "10px"
+          },
+          show: true
+        };
+      }
+
+      function clip(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      // drag-movable text
+      Vue.component("draggable-item", {
+        template: `
+        <div
+          draggable="true"
+          @click="select"
+          @dragstart="onDragStart"
+          @dragend="onDragEnd"
+          :style="item.style"
+          style="position: absolute;">
+          <div v-for="line in item.text.split('\\n')">
+            {{ line }}
+          </div>
+        </div>`,
+        props: {
+          item: Object
+        },
+        data() {
+          return {
+            posMemory: null
+          };
+        },
+        methods: {
+          select() {
+            this.$emit("select", this);
+          },
+          onDragStart(e) {
+            // e: DragEvent, see https://developer.mozilla.org/ja/docs/Web/Events/dragstart
+            this.posMemory = { x: e.clientX, y: e.clientY };
+            this.select();
+          },
+          onDragEnd(e) {
+            // e: DragEvent, see https://developer.mozilla.org/en-US/docs/Web/Events/dragend
+            const offsetX = e.clientX - this.posMemory.x;
+            const offsetY = e.clientY - this.posMemory.y;
+            const margin = 10;
+            let x = this.item.style.left || "10px";
+            let y = this.item.style.top || "10px";
+            x = parseInt(x, 10);
+            y = parseInt(y, 10);
+
+            x = clip(
+              x + offsetX,
+              margin,
+              e.target.parentNode.clientWidth - margin
+            );
+            y = clip(
+              y + offsetY,
+              margin,
+              e.target.parentNode.clientHeight - margin
+            );
+            this.$emit("input", { top: y + "px", left: x + "px" });
+          }
+        }
+      });
+
+      // vue
+      new Vue({
+        el: "#app",
+        data: {
+          SampleStruct: {
+            Text1: newTextItem("Text1"),
+            Sample: newTextItem("Sample"),
+            Foo: newTextItem("Foo")
+          },
+          selectingItem: null,
+          styles: [
+            "text-align",
+            "font-size",
+            "line-height",
+            "color",
+            "width",
+            "background-color"
+          ]
+        }
+      });
+    </script>
+  </body>
+</html>

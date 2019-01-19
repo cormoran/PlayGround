@@ -1,0 +1,19 @@
+# https://qiita.com/komitomo/items/e78855fa1ccee1737ac7
+- hosts: all
+  sudo: true
+
+  vars:
+    - username:  #put username
+    - homedir:   /home/{{username}}
+  tasks:
+    - name: add a new user
+      user: name={{username}} state=present home={{homedir}}
+
+    - name: mkdir .ssh
+      file: dest={{homedir}}/.ssh/ state=directory owner={{username}} group={{username}} mode=700
+
+    - name: add authorized keys
+      file: dest={{homedir}}/.ssh/authorized_keys state=touch owner={{username}} group={{username}} mode=600
+
+    - name: copy publickey
+      template: src=public.j2 dest={{homedir}}/.ssh/authorized_keys
