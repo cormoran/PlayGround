@@ -36,7 +36,7 @@ public class Judge {
             Scanner outputScanner = new Scanner(outputFile)) {
             TestCase testCase = new TestCase(inputScanner);
             int score = new Judge().execute(testCase, outputScanner);
-            System.out.println("score:" + score);
+            System.out.println(score);
         }
     }
 

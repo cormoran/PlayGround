@@ -57,18 +57,29 @@ State SimulatedAnnealing(State initial_state,
         return max(1.0 - (double)timer.elapsed() / time_ms, 1e-9);
     };
     auto probability = [] (double delta, double temp) {
-        return exp(delta / temp); // [0, 1) if delta < 0 and temp > 0
+        constexpr double alpha = 1; // larger value encourages more transition
+        return exp(alpha * delta / temp); // [0, 1) if delta < 0 and temp > 0
     };
-
-    for(int itr = 0; not timer.over(time_ms); itr++) {
+    int itr = 0, num_update = 0, num_best = 0;
+    for(itr = 0; not timer.over(time_ms); itr++) {
         State nxt = next(state);
         double delta = score(nxt) - score(state);
         if(probability(delta, temperature()) > uniform(engine)) {
             // cerr << "update! " << score(state) << " -> " << score(nxt) << endl;
+            num_update++;
             state = nxt;
-            if(score(state) > score(best_state)) best_state = state;
+            if(score(state) > score(best_state)) {
+                best_state = state;
+                num_best++;
+            }
         }
     }
+    cerr << "[SA]" << endl
+         << "* elapsed time: " << timer.elapsed() << " ms" << endl
+         << "* number of iteration: " << itr << endl
+         << "* last score: " << score(best_state) << endl
+         << "* num update: " << num_update << endl
+         << "* num best update: " << num_best << endl;
     return best_state;
 }
 
@@ -89,9 +100,17 @@ int main() {
 
     int N; cin >> N;
     vector<int> X(N), Y(N); rep(i, N) cin >> X[i] >> Y[i];
+
     auto calc_dist2 = [&] (int i, int j) {
         return pow<int>(X[i] - X[j], 2) + pow<int>(Y[i] - Y[j], 2);
     };
+
+    vector<vector<int>> dist2(N, vector<int>(N));
+    vector<vector<double>> dist(N, vector<double>(N));
+    rep(i, N) rep(j, N) {
+        dist2[i][j] = calc_dist2(i, j);
+        dist[i][j] = sqrt(dist2[i][j]);
+    }
 
     State init; init.indices = arange(N);
     rep(i, N) {
@@ -99,28 +118,69 @@ int main() {
         init.sum += sqrt(calc_dist2(init[i], init[i + 1]));
     }
 
-    function<State(State)> next = [&] (State state) {
-        auto uniform = uniform_int_distribution<>(0, N - 1);
-        State nxt = state;
-        int a = uniform(engine), b = uniform(engine); // ... [a ... b] ...
-        if(a > b) swap(a, b);
-
-        nxt.sum2 -= calc_dist2(nxt[a - 1], nxt[a]);
-        nxt.sum -= sqrt(calc_dist2(nxt[b], nxt[b + 1]));
-
-        reverse(begin(nxt.indices) + a, begin(nxt.indices) + b + 1);
-
-        nxt.sum2 += calc_dist2(nxt[a - 1], nxt[a]);
-        nxt.sum += sqrt(calc_dist2(nxt[b], nxt[b + 1]));
-
-        return nxt;
-    };
     function<double(State)> score = [&] (State state) {
-        cerr << state.var() << " " << state.sum2 << " " << state.sum << endl;
         return 1e6 / (1 + state.var());
     };
 
-    auto res = SimulatedAnnealing(init, 1950, next, score);
+
+    // 2-opt:
+    //   reverse closed range(a, b)
+    //   ... [a, ..., b] ... --> ... [b, ..., a] ...
+    function<State(State)> two_opt = [&] (State state) {
+        auto uniform = uniform_int_distribution<>(0, N - 1);
+        int a = uniform(engine), b = uniform(engine);
+        if(a > b) swap(a, b);
+
+        auto update = [&] (int x, int sign) {
+            // remove or connect [x] and [x + 1]
+            state.sum2 += sign * dist2[state[x]][state[x + 1]];
+            state.sum += sign * dist[state[x]][state[x + 1]];
+        };
+
+        update(a - 1, -1);
+        update(b, -1);
+
+        reverse(begin(state.indices) + a, begin(state.indices) + b + 1);
+
+        update(a - 1, +1);
+        update(b, +1);
+
+        return state;
+    };
+
+    // or-opt:
+    //   insert a after b
+    //   ... a, [..., b] ... --> ... [b, ...] a, ...
+    function<State(State)> or_opt = [&] (State state) {
+        auto uniform = uniform_int_distribution<>(0, N - 1);
+        int a = uniform(engine), b = uniform(engine);
+        if(a == b) return state;
+        if(a > b) swap(a, b);
+
+        auto update = [&] (int x, int sign) {
+            // remove or connect [x] and [x + 1]
+            state.sum2 += sign * dist2[state[x]][state[x + 1]];
+            state.sum += sign * dist[state[x]][state[x + 1]];
+        };
+
+        update(a - 1, -1);
+        update(a, -1);
+        update(b, -1);
+
+        { // insert a after b
+            int tmp = state.indices[a];
+            repeat(i, a, b) state.indices[i] = state.indices[i + 1];
+            state.indices[b] = tmp;
+        }
+
+        update(a - 1, +1);
+        update(b - 1, +1);
+        update(b, +1);
+
+        return state;
+    };
+
+    auto res = SimulatedAnnealing(init, 1950, two_opt, score);
 
     rep(i, N) cout << res[i] << endl;
     // cerr << score(res) << endl;
