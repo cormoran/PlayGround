@@ -31,15 +31,13 @@ class Solver {
             if(now == N) {
                 res = 0;
                 vector<int> abc(3);
-                vector<int> cnt(3);
                 rep(i, choice.size()) {
                     if(choice[i] < 3) {
                         res += abc[choice[i]] > 0 ? 10 : 0;
                         abc[choice[i]] += L[i];
-                        cnt[choice[i]]++;
                     }
                 }
-                rep(i, 3) if(cnt[i] > abc[i] or (cnt[i] == 0 and abc[i] > 0)) return INF;
+                rep(i, 3) if(abc[i] == 0 and ABC[i] > 0) return INF;
                 rep(i, 3) res += abs(abc[i] - ABC[i]);
                 return res;
             }
