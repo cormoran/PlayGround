@@ -7,37 +7,62 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 
 import com.linecorp.decaton.client.DecatonClient;
+import com.linecorp.decaton.client.DecatonTaskProducer;
 import com.linecorp.decaton.client.PutTaskResult;
+import com.linecorp.decaton.processor.ProcessorProperties;
+import com.linecorp.decaton.processor.ProcessorsBuilder;
+import com.linecorp.decaton.processor.Property;
+import com.linecorp.decaton.processor.StaticPropertySupplier;
+import com.linecorp.decaton.processor.runtime.ProcessorSubscription;
+import com.linecorp.decaton.processor.runtime.SubscriptionBuilder;
+import com.linecorp.decaton.protobuf.ProtocolBuffersDeserializer;
 import com.linecorp.decaton.protobuf.ProtocolBuffersSerializer;
 
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 
 import decatontest.Task.PrintMessageTask;
 
 public class App {
     public static void main(String[] args) throws Exception {
+        Properties consumerConfig = new Properties();
+        consumerConfig.setProperty(ConsumerConfig.CLIENT_ID_CONFIG, "processor2");
+        consumerConfig.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:32770");
+        consumerConfig.setProperty(ConsumerConfig.GROUP_ID_CONFIG, "processor2");
+        ProcessorSubscription sub = SubscriptionBuilder.newBuilder("processor2")
+                .processorsBuilder(ProcessorsBuilder
+                        .consuming("test", new ProtocolBuffersDeserializer<>(PrintMessageTask.parser()))
+                        .thenProcess(new PrintMessageTaskProcessor()))
+                .properties(StaticPropertySupplier
+                        .of(Property.ofStatic(ProcessorProperties.CONFIG_PARTITION_CONCURRENCY, 1)))
+                .consumerConfig(consumerConfig).buildAndStart();
+        System.err.println("Hey");
         try (DecatonClient<PrintMessageTask> client = newClient()) {
-            String name = "cormoran";
-            int age = 18;
-            PrintMessageTask task = PrintMessageTask.newBuilder().setName(name).setAge(age).build();
-            CompletableFuture<PutTaskResult> result = client.put(name, task); // (1)
+            for (int i = 0; i < 100; i++) {
+                String name = "cormoran";
+                int age = 18;
+                PrintMessageTask task = PrintMessageTask.newBuilder().setName(name).setAge(age).build();
+                CompletableFuture<PutTaskResult> result = client.put(name, task); // (1)
 
-            // Synchronously wait the result
-            result.join();
-            // Asynchronously observe the result
-            result.whenComplete((r, e) -> {
-                System.err.println("Producing task failed... " + e);
-            });
+                // Synchronously wait the result
+                result.join();
+                // Asynchronously observe the result
+                result.whenComplete((r, e) -> {
+                    if (e != null) {
+                        System.err.println("Producing task failed... " + e);
+                    }
+                });
+            }
         }
+        Thread.sleep(100000);
+        sub.close();
     }
 
     private static DecatonClient<PrintMessageTask> newClient() {
         Properties producerConfig = new Properties();
         producerConfig.setProperty(ProducerConfig.CLIENT_ID_CONFIG, "my-decaton-client");
-        producerConfig.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:8080");
-
-        return DecatonClient.producing("my-decaton-topic", new ProtocolBuffersSerializer<PrintMessageTask>())
-                .applicationId("MyApp") // (2)
+        producerConfig.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:32770");
+        return DecatonClient.producing("test", new ProtocolBuffersSerializer<PrintMessageTask>()).applicationId("MyApp") // (2)
                 // By default it sets local hostname but here we go explicit
                 .instanceId("localhost").producerConfig(producerConfig).build();
     }
