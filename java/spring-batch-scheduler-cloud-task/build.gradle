@@ -33,6 +33,10 @@ dependencyManagement {
   }
 }
 
+bootRun {
+  // jvmArgs = ['-DenableScheduling=true']
+}
+
 
 test {
     // Use junit platform for unit tests
