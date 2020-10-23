@@ -1,4 +1,4 @@
-package com.example.batchscheduler;
+package com.example.demo;
 
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;

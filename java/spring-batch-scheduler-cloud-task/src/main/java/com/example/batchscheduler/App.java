@@ -10,6 +10,7 @@ import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.batch.JobLauncherApplicationRunner;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.task.configuration.EnableTask;
 import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -21,13 +22,5 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class App {
     public static void main(String[] args) throws InterruptedException {
         SpringApplication.run(App.class, args);
-    }
-
-    @Bean
-    public JobLauncherApplicationRunner jobLauncherApplicationRunner(JobLauncher jobLauncher, JobExplorer jobExplorer,
-            JobRepository jobRepository) {
-        JobLauncherApplicationRunner runner = new JobLauncherApplicationRunner(jobLauncher, jobExplorer, jobRepository);
-        runner.setJobNames("jobNames");
-        return runner;
     }
 }
